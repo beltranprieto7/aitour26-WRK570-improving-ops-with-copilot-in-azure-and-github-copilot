@@ -1,16 +1,12 @@
 name: package-ai-service
 
 on:
-  pull_request:
-    branches:
-      - "main"
-    paths:
-      - "src/ai-service/**"
   push:
     branches:
-      - "main"
-    paths:
-      - "src/ai-service/**"
+      - '**'
+  pull_request:
+    branches:
+      - '**'
 
   workflow_dispatch:
 
