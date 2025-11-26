@@ -17,6 +17,7 @@ on:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 jobs:
   publish-container-image:
@@ -59,6 +60,8 @@ jobs:
           file: src/ai-service/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' }}
+          # load the built image for non-push events so local scanners can access it
+          load: ${{ github.event_name != 'push' }}
           tags: |
             ${{ steps.set-variables.outputs.REPOSITORY }}/${{ steps.set-variables.outputs.IMAGE }}:latest
             ${{ steps.set-variables.outputs.REPOSITORY }}/${{ steps.set-variables.outputs.IMAGE }}:${{ steps.set-variables.outputs.VERSION }}
@@ -66,3 +69,32 @@ jobs:
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.created=${{ steps.set-variables.outputs.CREATED }}
             org.opencontainers.image.revision=${{ steps.set-variables.outputs.VERSION }}
+
+      - name: Scan built image with Trivy (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.12.1
+        with:
+          image-ref: ${{ steps.set-variables.outputs.REPOSITORY }}/${{ steps.set-variables.outputs.IMAGE }}:${{ steps.set-variables.outputs.VERSION }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  code-scanning:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          # adjust languages list if your repo uses other languages
+          languages: python, javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
